@@ -15,8 +15,8 @@ addon_BASE_PATH = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
 #SWAP_FILE      = os.path.join("/tmp/", 'swap.json')
 TOKEN_FILE = os.path.join("/tmp/","auth_token.txt")
 
-BW = "4872000"
-BW = addon.getSetting('bandwidth')
+BW = "1280x720"
+#BW = addon.getSetting('bandwidth')
 
 urls = {
         "home" : "https://dce-frontoffice.imggaming.com/api/v2/content/home?bpp=10&bp=1&rpp=25&displayGeoblockedLive=false&displaySectionLinkBuckets=show",
@@ -343,7 +343,7 @@ def publish_point(video):
     
     xbmc.log(str(result), level=xbmc.LOGERROR)
     
-    xbmc.log("First query result: {0}.\r\nFirst query header_this_session: {1}".format(str(resp.text), str(header_this_session),level=xbmc.LOGERROR))
+    #xbmc.log("First query result: {0}.\r\nFirst query header_this_session: {1}".format(str(resp.text), str(header_this_session),level=xbmc.LOGERROR))
 
     if "dve-api" in result['playerUrlCallback']:
         resp = s.get(result['playerUrlCallback'], headers = header_this_session)
@@ -363,19 +363,26 @@ def publish_point(video):
         o_path = result['playerUrlCallback']
    
 
+    xbmc.log("Return status: {0}.\r\nPlay url path: {1}".format(str(status), str(o_path)),level=xbmc.LOGERROR)
+
     return status, o_path
 
 def return_FQDN_for_res(result, start_url):
-
-    my_expression = "https://dve-streams.akamaized.net/[^/]*/[^/]*/[^/]*/[^/]*/[^/]*/[^/]*/[^/]*"
+    
+    ###The expression bellow needs to be better. In some instances it gets an extra value at the end###
+    my_expression = "(.*?)\w+\.\w+\?"
     matches = re.match(my_expression,start_url)
-    url_start = matches.group()
+    url_start = matches.group(1)
     url_end = ""
-    for line in result.split('\n'):
-        if BW in line:
-            url_end =  line
 
-    return url_start + "/" +  url_end                       
+    splits = iter(result.split('\n'))    
+
+    for line in splits:
+        if BW in line:
+            url_end =  next(splits)
+            break #break once found 
+
+    return url_start +   url_end                       
 
 
 def main():
