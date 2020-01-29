@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <settings>
-   <category label="30003">
-      <setting id="username" type="text" label="30000"/>
-      <setting id="password" type="text" label="30001" option="hidden"/>
+   <category label="9000">
+      <setting id="username" type="text" label="9001"/>
+      <setting id="password" type="text" label="9002" option="hidden"/>
    </category>
-   <category label="30004">
-      <setting id="cacheInterval" type="number" label="30002" default="60" />
-   </category>
-   <category label="30005">
-      <setting id="bandwidth" type="select" label="30006" lvalues= "412|726|1100|1640|3000|4500|6000|728" />
+   <category label="8000">
+      <setting id="bandwidth" type="select" label="8001" values="1080|720|504|360|288" />
    </category>
 </settings>

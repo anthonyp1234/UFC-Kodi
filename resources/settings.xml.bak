@@ -1,0 +1,49 @@
+<?xml version="1.0" ?>
+<settings version="1">
+  <section id="plugin.video.ufc">
+    <category id="Sign In" label="9000" help="">
+        <setting id="username" type="string" label="9001" help="">
+            <level>0</level>
+            
+            <constraints>
+                <allowempty>false</allowempty>
+            </constraints>
+            <control type="edit" format="string">
+                <heading>9001</heading>
+            </control>
+        </setting>
+
+        <setting id="password" type="string" label="9002" help="">
+            <level>0</level>
+           
+            <constraints>
+                <allowempty>false</allowempty>
+            </constraints>
+            <control type="edit" format="string">
+                <heading>9002</heading>
+                <hidden>true</hidden>
+            </control>
+        </setting>
+       </category>
+
+       <category id="resolution" label="8000" help=""> 
+        <setting id="bandwidth" type="integer" label="8001" help="">
+            <level>0</level>
+            <default>1080</default>
+            <constraints>
+                <options>
+                    <option label="1080">0</option>
+                    <option label="720">1</option>
+                    <option label="504">2</option>
+                    <option label="360">3</option>
+                    <option label="288">4</option>
+                </options>
+            </constraints>
+            <control type="list" format="string">
+                <heading>"8001"</heading>
+            </control>
+         </setting>
+       </category>
+  </section>
+
+</settings>

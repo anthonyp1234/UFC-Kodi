@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.ufc" name="UFC" version="0.0.1" provider-name="Anthony">
+<addon id="plugin.video.ufc" name="UFC" version="0.1.0" provider-name="Anthony">
   <requires>
     <import addon="xbmc.python" version="2.19.0"/>
     <import addon="script.module.requests" version="2.9.1"/>
@@ -18,5 +18,12 @@
     <forum></forum>
     <website></website>
     <source></source>
+    <assets>
+      <icon>resources/icon.png</icon>
+      <fanart>resources/fanart.jpg</fanart>
+      <banner>resources/fanart.jpg</banner>
+      <clearlogo>resources/fanart.jpg</clearlogo>
+      <screenshot></screenshot>
+    </assets>
   </extension>
 </addon>

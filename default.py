@@ -1,8 +1,8 @@
 import sys, xbmcgui, xbmcplugin, xbmcaddon
-import os, requests, urllib, urllib2, cookielib, re, json, datetime, time
+import os, requests, re, json
+from urllib import urlencode 
 from urlparse import parse_qsl
 import pickle
-from bs4 import BeautifulSoup
 
 
 addon           = xbmcaddon.Addon(id='plugin.video.ufc')
@@ -15,8 +15,13 @@ addon_BASE_PATH = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
 #SWAP_FILE      = os.path.join("/tmp/", 'swap.json')
 TOKEN_FILE = os.path.join("/tmp/","auth_token.txt")
 
-BW = "1280x720"
-#BW = addon.getSetting('bandwidth')
+
+###SET Background?
+#xbmcplugin.setPluginFanart(int(sys.argv[1]), 'special://home/addons/plugins/video/Apple movie trailers II/fanart.png', color2='0xFFFF3300')
+
+BW = 1080
+BW = addon.getSetting('bandwidth')
+resolutions = [(1080,"1920x1080"),(720,"1280x720"),(504, "896x504"),(360 , "640x360"),(288, "512x288")]
 
 urls = {
         "home" : "https://dce-frontoffice.imggaming.com/api/v2/content/home?bpp=10&bp=1&rpp=25&displayGeoblockedLive=false&displaySectionLinkBuckets=show",
@@ -77,12 +82,9 @@ def get_web_data(url):
     headers_this_session["authorization"] = token
     session.headers = headers_this_session
     
-    xbmc.log("Headers in get web data" +str(headers_this_session))
-    
     response = session.get(url, headers=headers_this_session)
     
     if response.status_code == 200:
-        #xbmc.log(
         return response.json()
     elif response.status_code == 401:  #if the token gives back unauthorized, it's old. Delete it and rerun the method
         os.remove(TOKEN_FILE)
@@ -104,14 +106,12 @@ def get_token():
 def router(paramstring):
     """Router for kodi to select the menu item and route appropriately. """ 
     
-    #xbmc.log(str(paramstring),level=xbmc.LOGERROR)
     params = dict(parse_qsl(paramstring))
     
     
     
     if params:
         action = params['action']
-        #xbmc.log("hello123",level=xbmc.LOGERROR)
         if action == 'listing':
             menu_data=get_categories(params['u'])
             build_menu(menu_data)
@@ -124,7 +124,6 @@ def router(paramstring):
           #menu_data=get_categories(urls["home"])
           #build_menu(menu_data)
           
-    #xbmc.log("hello",level=xbmc.LOGERROR)
 
 
 
@@ -135,7 +134,6 @@ def get_categories(url):
     #keywords = ["contentList","vods","subEvents","events"]
     keywords = ["contentList","vods","events"]
     
-    xbmc.log("Type from get_web_data is: " + str(type(data)),level=xbmc.LOGERROR)
     
     extract = []
     
@@ -145,20 +143,12 @@ def get_categories(url):
         for half_parsed_list in iter_object: #
             extract.append(half_parsed_list)
     
+    clean_extract = clean_iter_data(extract)
+
+ 
     ### REmove this for the moment extract = gen_dict_extract(keywords, data) ###Grab all items in nested dict that have "contentList as key"   
     my_listings = []
-    
-    #xbmc.log(str(data),level=xbmc.LOGERROR)
-    for content_list in extract:        
-        
-        xbmc.log("Extract: " + str((content_list)),level=xbmc.LOGERROR)
-        if len(content_list) ==0:
-            next
-        elif type(content_list) is list:
-            i = content_list[0]   
-        else:
-            i=content_list
-        #xbmc.log(str(content_list),level=xbmc.LOGERROR)
+    for i in clean_extract:        
         if i.get("type") == 'PLAYLIST':
             listing = {
                 'type' : i.get("type"),
@@ -170,66 +160,42 @@ def get_categories(url):
                 }
             my_listings.append(listing)
         if i.get("type") == 'VOD':
-    #xbmc.log("in vod\r\n",level=xbmc.LOGERROR)
             listing = {
                 'type' : i.get("type"),
                 'thumbnailUrl' : i.get("thumbnailUrl"),
-                'posterUrl' : i.get("posterUrl"),
+                #'posterUrl' : i.get("posterUrl"),
                 'duration' : i.get("duration"),
                 'title' : i.get("title"),
                 'description' : i.get("description"),
                 'id' : i.get("id"),
                 'duration' : i.get("duration")
                 }
+            if i.get("posterUrl"):
+                listing["posterUrl"] = i.get("posterUrl")
+            else:
+                listing["posterUrl"] = listing["thumbnailUrl"]
+
             my_listings.append(listing)
-    #xbmc.log(str(my_listings),level=xbmc.LOGERROR)
+
     return my_listings
 
-def get_categories_bak(url):
-    """Put items into readable array of dict, and return the array for building the menu"""
-    
-    
-    data = get_web_data(url) ###Scrape the url data
-    
-    my_listings = []
-    xbmc.log(str(type(data)),level=xbmc.LOGERROR)
-    for content_list in data["buckets"]:
-  #xbmc.log(str(content_list),level=xbmc.LOGERROR)
-        for i in content_list["contentList"]:
-            if i.get("type") == 'PLAYLIST':
-                listing = { 
-                    'type' : i.get("type"),
-                    'coverUrl' : i.get("coverUrl"),
-                    'smallCoverUrl' : i.get("smallCoverUrl"),
-                    'title' : i.get("title"),
-                    'description' : i.get("description"),
-                    'id' : i.get("id")
-                    }
-                my_listings.append(listing)
-                
-            if i.get("type") == 'VOD':
-    #xbmc.log("in vod\r\n",level=xbmc.LOGERROR)
-                listing = { 
-                    'type' : i.get("type"),
-                    'thumbnailUrl' : i.get("thumbnailUrl"),
-                    'posterUrl' : i.get("posterUrl"),
-                    'duration' : i.get("duration"),
-                    'title' : i.get("title"),
-                    'description' : i.get("description"),
-                    'id' : i.get("id"),
-                    'duration' : i.get("duration")
-                    }
-    my_listings.append(listing)
-    #xbmc.log(str(my_listings),level=xbmc.LOGERROR)
-    return my_listings
+
+def clean_iter_data(data):
+    """Takes in iter data which is mess and returns list of dict items"""
+    newlist = []
+    newlist = [item for data in data for item in data]
+    return_list = []    
+    for item in newlist:
+        if type(item) is dict:
+            return_list.append(item)
+
+    return return_list
             
                 
 def build_menu(itemData):     
     """ Takes in array of dict, using this array builds a menu to display in Kodi"""
     for my_item in itemData:
-        #xbmc.log("MY_ITem: " + str(my_item),level=xbmc.LOGERROR)
         if my_item["type"] == 'VOD':
-            xbmc.log("Found VOD \r\n",level=xbmc.LOGERROR)
             kodi_item = xbmcgui.ListItem(label=my_item["title"])
             kodi_item.setArt({  'thumb': my_item["thumbnailUrl"], 
                                 'icon' :  my_item["thumbnailUrl"], 
@@ -237,7 +203,7 @@ def build_menu(itemData):
                                 'poster' : my_item["posterUrl"], 
                                 'banner': my_item["posterUrl"], 
                                 'fanart': my_item["posterUrl"]})
-            kodi_item.setInfo(type='video', infoLabels={'plot': my_item["description"], 'duration': my_item["duration"] })
+            kodi_item.setInfo(type='video', infoLabels={'plot': my_item.get("description"), 'duration': my_item.get("duration") })
                                 
             url = '{0}?action=play&i={1}&t={2}'.format(addon_url, my_item["id"], my_item["title"])
             xbmcplugin.addDirectoryItem(addon_handle, url, kodi_item, False ) ###last false is if it is a directory
@@ -290,19 +256,17 @@ def play_video(v_id, v_title):
             dialog = xbmcgui.Dialog()
             dialog.ok('Authorization Error', 'Authorization to UFC Fight Pass failed.')
     
-    #xbmc.log("stream_string:  is {0}".format('|User-Agent=' + ua),level=xbmc.LOGERROR)
     
     
     v_token = get_token()
     
     encode_string = {"User-Agent": headers["user-agent"], "authorization": v_token, "content-type": "video/MP2T" }
-    my_encoding = urllib.urlencode(encode_string)
+    my_encoding = urlencode(encode_string)
 
     try:
         #pass
         stream = stream + '|' +my_encoding
         item = xbmcgui.ListItem(label=v_title)
-        xbmc.log("Playing Video:{0}\r\n Item details: {1}".format(stream,str(item)), level=xbmc.LOGERROR)
         xbmc.Player().play(stream, item)
     except:
         dialog = xbmcgui.Dialog()
@@ -330,10 +294,7 @@ def publish_point(video):
     header_this_session["authorization"] = str(get_token())
     s.headers = header_this_session
     
-    #xbmc.log("Headers: {0}.\r\n Payload: {1} " .format(str(s.headers), str(payload)),level=xbmc.LOGERROR)
     
-    #xbmc.log("header is" +str(header),level=xbmc.LOGERROR)
-    #xbmc.log("Payload is" + str(payload),level=xbmc.LOGERROR)
     resp = s.get(url+str(video['id']), headers=header_this_session) #changed params=payload to params=str(video['id'])
     # normally status 400 if have an expired session
     status = resp.status_code
@@ -341,9 +302,7 @@ def publish_point(video):
     if not result:
         return status, None
     
-    xbmc.log(str(result), level=xbmc.LOGERROR)
     
-    #xbmc.log("First query result: {0}.\r\nFirst query header_this_session: {1}".format(str(resp.text), str(header_this_session),level=xbmc.LOGERROR))
 
     if "dve-api" in result['playerUrlCallback']:
         resp = s.get(result['playerUrlCallback'], headers = header_this_session)
@@ -351,19 +310,16 @@ def publish_point(video):
         result= resp.json()
         o_path = result["hls"]["url"]
         start_url = o_path
-        xbmc.log("Second Query resp: " + str(result), level=xbmc.LOGERROR)
     
         if "dve-streams.akamaized.net" in o_path:
             resp = s.get(o_path, headers = header_this_session)
             result = resp.text
-            xbmc.log("Second Query resp: " + str(result), level=xbmc.LOGERROR)
             o_path = return_FQDN_for_res(result,start_url)
 
     else:
         o_path = result['playerUrlCallback']
    
 
-    xbmc.log("Return status: {0}.\r\nPlay url path: {1}".format(str(status), str(o_path)),level=xbmc.LOGERROR)
 
     return status, o_path
 
@@ -378,18 +334,11 @@ def return_FQDN_for_res(result, start_url):
     splits = iter(result.split('\n'))    
 
     for line in splits:
-        if BW in line:
-            url_end =  next(splits)
-            break #break once found 
-
-    return url_start +   url_end                       
-
-
-def main():
-    pass
-
-
-
+        for resolution in resolutions:
+            if BW >= resolution[0]:
+                if resolution[1] in line:
+                    url_end =  next(splits)
+                    return url_start +   url_end 
 
 
 
@@ -402,4 +351,3 @@ if __name__ == '__main__':
 
 
 
-    #xbmc.log(str(sys.argv[1]),level=xbmc.LOGERROR)
