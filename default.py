@@ -1,23 +1,19 @@
 import sys, xbmcgui, xbmcplugin, xbmcaddon
 import os, requests, re, json
-from urllib import urlencode 
+from urllib import urlencode, quote_plus 
 from urlparse import parse_qsl
 import pickle
-
 
 addon           = xbmcaddon.Addon(id='plugin.video.ufc')
 addon_url       = sys.argv[0]
 addon_handle    = int(sys.argv[1])
 addon_icon      = addon.getAddonInfo('icon')
 addon_BASE_PATH = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
-#COOKIE_FILE     = os.path.join(addon_BASE_PATH, 'cookies.lwp')
-#CACHE_FILE      = os.path.join(addon_BASE_PATH, 'data.json')
-#SWAP_FILE      = os.path.join("/tmp/", 'swap.json')
 TOKEN_FILE = os.path.join("/tmp/","auth_token.txt")
 
 
 ###SET Background?
-#xbmcplugin.setPluginFanart(int(sys.argv[1]), 'special://home/addons/plugins/video/Apple movie trailers II/fanart.png', color2='0xFFFF3300')
+xbmcplugin.setPluginFanart(int(sys.argv[1]), 'special://home/addons/plugins/video/ufc/resources/fanart.jpg', color2='0xFFFF3300')
 
 BW = 1080
 BW = addon.getSetting('bandwidth')
@@ -26,7 +22,7 @@ resolutions = [(1080,"1920x1080"),(720,"1280x720"),(504, "896x504"),(360 , "640x
 urls = {
         "home" : "https://dce-frontoffice.imggaming.com/api/v2/content/home?bpp=10&bp=1&rpp=25&displayGeoblockedLive=false&displaySectionLinkBuckets=show",
         "library" : "https://dce-frontoffice.imggaming.com/api/v2/content/browse?bpp=10&bp=1&rpp=25&displaySectionLinkBuckets=show",
-        "url247" : "https://dce-frontoffice.imggaming.com/api/v2/event/live?rpp=3",
+        "live" : "https://dce-frontoffice.imggaming.com/api/v2/event/live?rpp=4",
         "favourites" : "https://dce-frontoffice.imggaming.com/api/v2/favourite/vods?rpp=25",
         "history": "https://dce-frontoffice.imggaming.com/api/v2/customer/history/vod?p=1&rpp=25"
         }
@@ -174,8 +170,25 @@ def get_categories(url):
                 listing["posterUrl"] = i.get("posterUrl")
             else:
                 listing["posterUrl"] = listing["thumbnailUrl"]
-
             my_listings.append(listing)
+
+        if i.get("type") == "LIVE" and i.get("live") == True:
+            listing = {
+                'type' : i.get("type"),
+                'coverUrl' : i.get("thumbnailUrl"),
+                'thumbnailUrl' : i.get("thumbnailUrl"),
+                'smallCoverUrl' : i.get("thumbnailUrl"),
+                'title' : i.get("title"),
+                'description' : i.get("description"),
+                'id' : i.get("id")
+                }
+            if i.get("posterUrl"):
+                listing["posterUrl"] = i.get("posterUrl")
+            else:
+                listing["posterUrl"] = listing["thumbnailUrl"]
+            my_listings.append(listing)
+
+
 
     return my_listings
 
@@ -194,19 +207,36 @@ def clean_iter_data(data):
                 
 def build_menu(itemData):     
     """ Takes in array of dict, using this array builds a menu to display in Kodi"""
+    xbmcplugin.setContent(int(sys.argv[1]), 'videos')
     for my_item in itemData:
-        if my_item["type"] == 'VOD':
-            kodi_item = xbmcgui.ListItem(label=my_item["title"])
-            kodi_item.setArt({  'thumb': my_item["thumbnailUrl"], 
-                                'icon' :  my_item["thumbnailUrl"], 
-                                'landscape': my_item["posterUrl"], 
-                                'poster' : my_item["posterUrl"], 
-                                'banner': my_item["posterUrl"], 
-                                'fanart': my_item["posterUrl"]})
-            kodi_item.setInfo(type='video', infoLabels={'plot': my_item.get("description"), 'duration': my_item.get("duration") })
+
+        ##Testing putposes:
+        if my_item["type"] == 'LIVE':
+            #xbmc.log("\r\n" + str(my_item),level=xbmc.LOGERROR)
+
+        if my_item["type"] == 'VOD' or 'LIVE':
+            kodi_item = xbmcgui.ListItem(label=my_item["title"],label2=my_item.get("description"))
+            kodi_item.setArt({  'thumb': my_item.get("thumbnailUrl"), 
+                                'icon' :  my_item.get("thumbnailUrl"), 
+                                'landscape': my_item.get("posterUrl"), 
+                                'poster' : my_item.get("posterUrl"), 
+                                'banner': my_item.get("posterUrl"), 
+                                'fanart': my_item.get("posterUrl")})
+
+            video_info = {
+                            'plot': my_item.get("description"),
+                            'plotoutline' : my_item.get("description"),
+                            'tagline' : my_item.get("description"),
+                            'setoverview' : my_item.get("description"),
+                            'episodeguide' : my_item.get("description"),
+                            'mediatype' : "tvshow",
+                            'duration': my_item.get("duration")
+                           }
+
+            kodi_item.setInfo(type='video', infoLabels=video_info)
                                 
-            url = '{0}?action=play&i={1}&t={2}'.format(addon_url, my_item["id"], my_item["title"])
-            xbmcplugin.addDirectoryItem(addon_handle, url, kodi_item, False ) ###last false is if it is a directory
+            url = '{0}?action=play&i={1}&t={2}'.format(addon_url, my_item["id"], quote_plus(my_item["title"]))
+            xbmcplugin.addDirectoryItem(addon_handle, url, kodi_item, isFolder=False, totalItems=len(itemData)) ###last false is if it is a directory
 
     ###Thats it create the folder structure
     xbmcplugin.endOfDirectory(addon_handle)
@@ -217,8 +247,12 @@ def build_initial_menu():
     """Builds the initial menus for UFC"""
 
     for item in urls:   
-        kodi_item = xbmcgui.ListItem(label=item)
-        kodi_item.setInfo(type='video', infoLabels={'plot': "UFC {0}".format(str(item))} )
+        kodi_item = xbmcgui.ListItem(label=item.capitalize())
+        info_label = {
+                        'title' : item.capitalize(),
+                        'plot': "UFC {0}".format(str(item))
+                        }
+        kodi_item.setInfo(type='video', infoLabels=info_label )
         url = '{0}?action=listing&u={1}'.format(addon_url, urls[item])
         xbmcplugin.addDirectoryItem(addon_handle, url, kodi_item, True ) ###last false is if it is a directory
     xbmcplugin.endOfDirectory(addon_handle)
@@ -280,14 +314,9 @@ def publish_point(video):
     get a response that includes a path,returns (status code, path to video)"""
     
     url = 'https://dce-frontoffice.imggaming.com/api/v2/stream/vod/'
+    url2 = 'https://dce-frontoffice.imggaming.com/api/v2/event/' ##This url is for streaming (grab the data)a
+    url3 = 'https://dce-frontoffice.imggaming.com/api/v2/stream?eventId=' ##another url for stremaing (actual streaming info)
     start_url = "" ## Start url string for final response. 
-#    payload = {
-#        'eventId': str(video['id']),
-#        'sportId': '0',  
-#        'propertyId': '0',
-#        'tournamentId':'0', 
-#        'displayGeoblockedLive': 'false' ###added this 24/01/2019          
- #   }
     
     s = requests.Session()
     header_this_session = headers
@@ -298,20 +327,37 @@ def publish_point(video):
     resp = s.get(url+str(video['id']), headers=header_this_session) #changed params=payload to params=str(video['id'])
     # normally status 400 if have an expired session
     status = resp.status_code
+
+
+
+    ##Need to do a seperate publish point for live
+    if status != 200: ##hack to deal with live using a different url
+        resp = s.get(url3+str(video['id']), headers=header_this_session) 
+        #xbmc.log("Response to live: " + str(resp.text),level=xbmc.LOGERROR)       
+        result = resp.json()
+        
+ 
     result = resp.json()
     if not result:
         return status, None
     
     
-
-    if "dve-api" in result['playerUrlCallback']:
+    #xbmc.log(str(result),level=xbmc.LOGERROR)
+    if "dve-api"  in result['playerUrlCallback']:
         resp = s.get(result['playerUrlCallback'], headers = header_this_session)
         status = resp.status_code
         result= resp.json()
         o_path = result["hls"]["url"]
         start_url = o_path
-    
-        if "dve-streams.akamaized.net" in o_path:
+    elif "dge-streaming" in result['playerUrlCallback']:
+        resp = s.get(result['playerUrlCallback'], headers = header_this_session)    
+        status = resp.status_code
+        result= resp.json()
+        o_path = result['hlsUrl']
+        start_url = o_path  
+
+ 
+        if "dve-streams.akamaized.net" or "dice-live" in o_path:
             resp = s.get(o_path, headers = header_this_session)
             result = resp.text
             o_path = return_FQDN_for_res(result,start_url)
@@ -338,8 +384,17 @@ def return_FQDN_for_res(result, start_url):
             if BW >= resolution[0]:
                 if resolution[1] in line:
                     url_end =  next(splits)
-                    return url_start +   url_end 
+                    return  merge_start_end_url(url_start, url_end)
 
+def merge_start_end_url(url_start, url_end):
+    if "../../" in url_end:
+        url_end = url_end.replace("../..","")
+        my_pattern = "^(https://.*?)/\d+"
+        url_start = re.match(my_pattern, url_start)
+        return url_start.group(1) + url_end
+        
+    else:
+        return url_start + url_end
 
 
 
