@@ -11,4 +11,4 @@ I've also got live working, please note I have NOT tested it with purchased live
 
 Use the setting for the app to put in your username and password, and also the resolution you want to stream (you can select 1080, 720, 504 etc)
 
-
+Oh and if the UFC see this and feel like giving me some Kudos, how about some free close to the ring tickets for me and the guys at my gym here in Melbourne next time the UFC is in Melbourne :) (thought I'd give it a shot)
