@@ -11,10 +11,6 @@ addon_icon      = addon.getAddonInfo('icon')
 addon_BASE_PATH = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
 TOKEN_FILE = os.path.join("/tmp/","auth_token.txt")
 
-
-###SET Background?
-xbmcplugin.setPluginFanart(int(sys.argv[1]), 'special://home/addons/plugins/video/ufc/resources/fanart.jpg', color2='0xFFFF3300')
-
 BW = 1080
 BW = addon.getSetting('bandwidth')
 resolutions = [(1080,"1920x1080"),(720,"1280x720"),(504, "896x504"),(360 , "640x360"),(288, "512x288")]
@@ -28,6 +24,8 @@ urls = {
         }
 
 auth_url = "https://dce-frontoffice.imggaming.com/api/v2/login"
+playlist_url = "https://dce-frontoffice.imggaming.com/api/v2/vod/playlist/{0}?rpp=25&p=1"
+
 
 headers={
     "content-type": "application/json",
@@ -49,7 +47,6 @@ def get_creds():
 
 def get_auth_token():
     """Take in the credentials as dict['username', 'password'] and return the Auth token as string with the bearer keyword ready to be used in the header"""
-    
     creds = get_creds()
     credentials = json.dumps({"id":creds['username'],"secret":creds['password']})
 
@@ -61,7 +58,6 @@ def get_auth_token():
         token = "Bearer " + response.json()["authorisationToken"]
         session.close()
         return token
-    
     else:
         xbmc.log("Could not get Auth Token, Session text: {0}".format(str(session.json())),level=xbmc.LOGERROR)
         return False
@@ -69,15 +65,12 @@ def get_auth_token():
 
 def get_web_data(url):
     """Grab the web data from the url"""
-
     token = get_token()
-
 
     session = requests.Session()
     headers_this_session = headers
     headers_this_session["authorization"] = token
     session.headers = headers_this_session
-    
     response = session.get(url, headers=headers_this_session)
     
     if response.status_code == 200:
@@ -101,10 +94,7 @@ def get_token():
 
 def router(paramstring):
     """Router for kodi to select the menu item and route appropriately. """ 
-    
     params = dict(parse_qsl(paramstring))
-    
-    
     
     if params:
         action = params['action']
@@ -117,22 +107,15 @@ def router(paramstring):
             pass
     else:
         build_initial_menu()
-          #menu_data=get_categories(urls["home"])
-          #build_menu(menu_data)
-          
-
 
 
 def get_categories(url):
     """Put items into readable array of dict, and return the array for building the menu"""
     data = get_web_data(url) ###Scrape the url data
 
-    #keywords = ["contentList","vods","subEvents","events"]
     keywords = ["contentList","vods","events"]
     
-    
     extract = []
-    
     for keyword in keywords:
         iter_object = gen_dict_extract(keyword, data) ##create the iter object
         
@@ -140,12 +123,11 @@ def get_categories(url):
             extract.append(half_parsed_list)
     
     clean_extract = clean_iter_data(extract)
-
  
-    ### REmove this for the moment extract = gen_dict_extract(keywords, data) ###Grab all items in nested dict that have "contentList as key"   
     my_listings = []
     for i in clean_extract:        
         if i.get("type") == 'PLAYLIST':
+            #/xbmc.log(str(i), level=xbmc.LOGERROR)
             listing = {
                 'type' : i.get("type"),
                 'coverUrl' : i.get("coverUrl"),
@@ -207,14 +189,15 @@ def clean_iter_data(data):
                 
 def build_menu(itemData):     
     """ Takes in array of dict, using this array builds a menu to display in Kodi"""
-    xbmcplugin.setContent(int(sys.argv[1]), 'videos')
+    #xbmcplugin.setContent(int(sys.argv[1]), 'videos')
     for my_item in itemData:
-
+        #xbmc.log("\r\n" + str(my_item["type"]),level=xbmc.LOGERROR)
         ##Testing putposes:
-        if my_item["type"] == 'LIVE':
+        #if my_item["type"] == 'LIVE':
             #xbmc.log("\r\n" + str(my_item),level=xbmc.LOGERROR)
 
-        if my_item["type"] == 'VOD' or 'LIVE':
+        if my_item["type"] == ('VOD' or 'LIVE'):
+            #xbmc.log("\r\n{0} Item type is {1}".format(str(my_item["title"]), str(my_item["type"])),level=xbmc.LOGERROR)
             kodi_item = xbmcgui.ListItem(label=my_item["title"],label2=my_item.get("description"))
             kodi_item.setArt({  'thumb': my_item.get("thumbnailUrl"), 
                                 'icon' :  my_item.get("thumbnailUrl"), 
@@ -237,6 +220,22 @@ def build_menu(itemData):
                                 
             url = '{0}?action=play&i={1}&t={2}'.format(addon_url, my_item["id"], quote_plus(my_item["title"]))
             xbmcplugin.addDirectoryItem(addon_handle, url, kodi_item, isFolder=False, totalItems=len(itemData)) ###last false is if it is a directory
+    
+        elif my_item["type"] == 'PLAYLIST':
+            #xbmc.log("Item type is playlist ",level=xbmc.LOGERROR)
+            #xbmc.log(str(my_item["type"]),level=xbmc.LOGERROR)
+            kodi_item = xbmcgui.ListItem(label=my_item["title"],label2=my_item.get("description"))
+
+            kodi_item.setArt({  'thumb': my_item.get("smallCoverUrl"),
+                                'icon' :  my_item.get("smallCoverUrl"),
+                                'landscape': my_item.get("coverUrl"),
+                                'poster' : my_item.get("coverUrl"),
+                                'banner': my_item.get("coverUrl"),
+                                'fanart': my_item.get("coverUrl")})
+
+            url_for_getting_data = playlist_url.format(my_item["id"])
+            url = '{0}?action=listing&u={1}'.format(addon_url, url_for_getting_data)
+            xbmcplugin.addDirectoryItem(addon_handle, url, kodi_item, isFolder=True, totalItems=len(itemData)) ###last false is if it is a directory 
 
     ###Thats it create the folder structure
     xbmcplugin.endOfDirectory(addon_handle)
@@ -341,33 +340,31 @@ def publish_point(video):
     if not result:
         return status, None
     
+
+    #xbmc.log("First reponse is: {0}".format(str(result)),level=xbmc.LOGERROR)    
+    resp2 = s.get(result['playerUrlCallback'], headers = header_this_session)
+    status2 = resp2.status_code
+    result2= resp2.json()
     
-    #xbmc.log(str(result),level=xbmc.LOGERROR)
-    if "dve-api"  in result['playerUrlCallback']:
-        resp = s.get(result['playerUrlCallback'], headers = header_this_session)
-        status = resp.status_code
-        result= resp.json()
-        o_path = result["hls"]["url"]
+    try:
+        o_path = result2["hls"]["url"]
         start_url = o_path
-    elif "dge-streaming" in result['playerUrlCallback']:
-        resp = s.get(result['playerUrlCallback'], headers = header_this_session)    
-        status = resp.status_code
-        result= resp.json()
-        o_path = result['hlsUrl']
-        start_url = o_path  
+    except:
+        o_path = result2['hlsUrl']
+        start_url = o_path
+        
+    resp3 = s.get(o_path, headers = header_this_session)
+    result3 = resp3.text
+    status3 = resp3.status_code
+    o_path = return_FQDN_for_res(result3,start_url)
 
- 
-        if "dve-streams.akamaized.net" or "dice-live" in o_path:
-            resp = s.get(o_path, headers = header_this_session)
-            result = resp.text
-            o_path = return_FQDN_for_res(result,start_url)
 
-    else:
-        o_path = result['playerUrlCallback']
+
+
+    return status3, o_path    
    
 
 
-    return status, o_path
 
 def return_FQDN_for_res(result, start_url):
     
