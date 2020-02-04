@@ -195,8 +195,8 @@ def build_menu(itemData):
         ##Testing putposes:
         #if my_item["type"] == 'LIVE':
             #xbmc.log("\r\n" + str(my_item),level=xbmc.LOGERROR)
-
-        if my_item["type"] == ('VOD' or 'LIVE'):
+    
+        if any(my_item["type"] in s for s in ('VOD' ,'LIVE')):
             #xbmc.log("\r\n{0} Item type is {1}".format(str(my_item["title"]), str(my_item["type"])),level=xbmc.LOGERROR)
             kodi_item = xbmcgui.ListItem(label=my_item["title"],label2=my_item.get("description"))
             kodi_item.setArt({  'thumb': my_item.get("thumbnailUrl"), 
