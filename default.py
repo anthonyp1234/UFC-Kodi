@@ -63,7 +63,7 @@ def get_auth_token():
         return False
 
 
-def get_web_data(url):
+def get_web_data(url, put_data=None):
     """Grab the web data from the url"""
     token = get_token()
 
@@ -71,9 +71,15 @@ def get_web_data(url):
     headers_this_session = headers
     headers_this_session["authorization"] = token
     session.headers = headers_this_session
-    response = session.get(url, headers=headers_this_session)
     
-    if response.status_code == 200:
+    if not put_data:
+        response = session.get(url, headers=headers_this_session)
+    else:
+        #xbmc.log("Url: {0}   data: {1}".format(url,put_data),level=xbmc.LOGERROR)
+        response = session.post(url,headers=headers_this_session, data=put_data)    
+
+    
+    if response.status_code < 400:
         return response.json()
     elif response.status_code == 401:  #if the token gives back unauthorized, it's old. Delete it and rerun the method
         os.remove(TOKEN_FILE)
@@ -103,10 +109,17 @@ def router(paramstring):
             build_menu(menu_data)
         elif action == 'play':
             play_video(params['i'],params['t'])
+        elif action == 'search':
+            search_term = get_search_term()
+            #xbmc.log(search_term, level=xbmc.LOGERROR)
+            menu_data = search(search_term)
+            build_menu(menu_data)        
         else:
             pass
     else:
         build_initial_menu()
+
+
 
 
 def get_categories(url):
@@ -173,6 +186,75 @@ def get_categories(url):
 
 
     return my_listings
+
+def get_search_term():
+    """Get search term to use in search funtion"""
+    kb = xbmc.Keyboard('default', 'heading')
+    kb.setDefault('')
+    kb.setHeading('Search')
+    kb.setHiddenInput(False)
+    kb.doModal()
+    if (kb.isConfirmed()):
+        search_term = kb.getText()
+        return search_term
+    else:
+        return
+
+
+#### For use in search
+def search(query_string):
+    """Search funtion, takes in keyword for search then returns a list of items that can be used to create the menu"""
+   
+    search_url = """https://h99xldr8mj-1.algolianet.com/1/indexes/*/queries?x-algolia-agent=Algolia%20for%20JavaScript%20(3.35.1)%3B%20Browser&x-algolia-application-id=H99XLDR8MJ&x-algolia-api-key=e55ccb3db0399eabe2bfc37a0314c346"""
+
+    post_data="{\"requests\":[{\"indexName\":\"prod-dce.ufc-livestreaming-events\",\"params\":\"query=" + query_string + "&facetFilters=%5B%22type%3AVOD_VIDEO%22%5D&hitsPerPage=10\"}]}"    
+
+    data = get_web_data(search_url,put_data=post_data) 
+
+    keywords = ["hits"]
+
+    extract = []
+    for keyword in keywords:
+        iter_object = gen_dict_extract(keyword, data) ##create the iter object
+
+        for half_parsed_list in iter_object: #
+            extract.append(half_parsed_list)
+
+    clean_extract = clean_iter_data(extract)
+
+ 
+    my_list = []
+    
+    for item in clean_extract:
+        
+        list_item = {}
+        
+        if type(item) is dict:
+            if 'VOD' in item.get("type"):    #'PLAYLIST': 
+                list_item["type"] = 'VOD'
+                list_item["id"]  = item["id"]                
+                list_item["duration"] = item["duration"]
+                if "localisations" in item.keys():
+                    if "en_US" in item["localisations"]:
+                        list_item["title"] = str(item["localisations"]["en_US"]["title"])
+
+                    if "en_GB" in item["localisations"]:
+                        list_item["title"] = str(item["localisations"]["en_GB"]["title"])                        
+
+                else:
+                    list_item["title"] = str(item["title"])  
+
+
+                if "thumbnailUrl" in item.keys():
+                    list_item["thumbnailUrl"] = str(item["thumbnailUrl"])
+
+                else:
+                    list_item["thumbnailUrl"] = str(item["smallCoverUrl"])
+                    
+                my_list.append(list_item)
+
+    return my_list
+
 
 
 def clean_iter_data(data):
@@ -254,6 +336,15 @@ def build_initial_menu():
         kodi_item.setInfo(type='video', infoLabels=info_label )
         url = '{0}?action=listing&u={1}'.format(addon_url, urls[item])
         xbmcplugin.addDirectoryItem(addon_handle, url, kodi_item, True ) ###last false is if it is a directory
+
+    #### Add the search to the list also:
+    kodi_item = xbmcgui.ListItem(label="Search")
+    kodi_item.setInfo(type='video', infoLabels={'title': 'Search'})
+    url = '{0}?action=search'.format(addon_url)
+    xbmcplugin.addDirectoryItem(addon_handle, url, kodi_item, True ) ###last false is if it is a directory
+
+
+    ##create the initialm Menu
     xbmcplugin.endOfDirectory(addon_handle)
 
 
