@@ -4,6 +4,9 @@ from urllib import urlencode, quote_plus
 from urlparse import parse_qsl
 import pickle
 
+#import inputstreamhelper  ###add this to deal with HLS stream
+import inputstreamhelper
+
 addon           = xbmcaddon.Addon(id='plugin.video.ufc')
 addon_url       = sys.argv[0]
 addon_handle    = int(sys.argv[1])
@@ -14,6 +17,70 @@ TOKEN_FILE = os.path.join("/tmp/","auth_token.txt")
 BW = 1080
 BW = addon.getSetting('bandwidth')
 resolutions = [(1080,"1920x1080"),(720,"1280x720"),(504, "896x504"),(360 , "640x360"),(288, "512x288")]
+
+"""
+PROTOCOL = 'hls'
+#DRM = 'com.widevine.alpha'
+STREAM_URL = 'https://demo.unified-streaming.com/video/tears-of-steel/tears-of-steel-dash-widevine.ism/.mpd'
+#LICENSE_URL = 'https://cwip-shaka-proxy.appspot.com/no_auth'
+"""
+def play_hls_video(v_id, v_title):
+
+    status, stream = publish_point({'id': v_id })
+
+    if status == 400:
+        if post_auth(get_creds()):
+            status, stream = publish_point({ 'id': v_id })
+        else:
+            dialog = xbmcgui.Dialog()
+            dialog.ok('Authorization Error', 'Authorization to UFC Fight Pass failed.')
+
+
+
+    v_token = get_token()
+
+    #encode_string = {"User-Agent": headers["user-agent"], "authorization": v_token, "content-type": "video/MP2T" }
+    encode_string = {"User-Agent": headers["user-agent"], 
+                    "Accept":"*/*", 
+                    "Accept-Encoding":"gzip, deflate, br", 
+                    "Accept-Language":"en-US,en;q=0.9", 
+                    "Connection":"keep-alive", 
+                    "Host":"dve-streams.akamaized.net",
+                    "Origin":"https://ufcfightpass.com",
+                    "Sec-Fetch-Mode":"cors",
+                    "Sec-Fetch-Site":"cross-site"
+                    }
+    
+
+    my_encoding = urlencode(encode_string)
+
+    stream_url = stream + '|' + my_encoding
+    
+    is_helper = inputstreamhelper.Helper('hls')
+    if is_helper.check_inputstream():
+        xbmc.log("\r\nGot to here" ,level=xbmc.LOGERROR)
+        playitem = xbmcgui.ListItem(path=stream_url,label=v_title)
+        playitem.setProperty('isFolder', 'false')
+        playitem.setPath(path=stream_url)
+        playitem.setInfo("video",{'mediatype':'video'})
+        playitem.setIsFolder(False)
+        
+        playitem.setProperty('IsPlayable', 'true')        
+
+        xbmc.log(playitem.getProperty('isFolder'),level=xbmc.LOGERROR)
+
+        playitem.setProperty('inputstreamaddon', is_helper.inputstream_addon)
+        playitem.setProperty('inputstream.adaptive.manifest_type', 'hls')
+        playitem.setProperty('inputstream.adaptive.stream_headers',my_encoding)        
+        playitem.setContentLookup(False)
+
+        xbmc.Player().play(stream_url,  playitem)
+        #xbmcplugin.setResolvedUrl(int(sys.argv[1]),True, listitem=playitem)
+
+
+
+
+
 
 urls = {
         "home" : "https://dce-frontoffice.imggaming.com/api/v2/content/home?bpp=10&bp=1&rpp=25&displayGeoblockedLive=false&displaySectionLinkBuckets=show",
@@ -108,7 +175,8 @@ def router(paramstring):
             menu_data=get_categories(params['u'])
             build_menu(menu_data)
         elif action == 'play':
-            play_video(params['i'],params['t'])
+            ## play_video(params['i'],params['t']) ###Removed and changed to new version to play hls video with m3u8 file instead
+            play_hls_video(params['i'],params['t'])
         elif action == 'search':
             search_term = get_search_term()
             #xbmc.log(search_term, level=xbmc.LOGERROR)
@@ -438,12 +506,16 @@ def publish_point(video):
     result2= resp2.json()
     
     try:
-        o_path = result2["hls"]["url"]
+        o_path = result2["hls"]["url"]   ###this is the m3u8 url
         start_url = o_path
     except:
         o_path = result2['hlsUrl']
         start_url = o_path
-        
+       
+    ##Now we have the url whiuch is the .m3u8 url this is the url with all the codecs and r3esolutions etc....
+    ##going to return this to triy the different method. (input helper) which is in the play_hls_video method 
+    return status2, start_url  ##Remove this if it doesn't work at later stage
+
     resp3 = s.get(o_path, headers = header_this_session)
     result3 = resp3.text
     status3 = resp3.status_code

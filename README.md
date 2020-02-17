@@ -14,3 +14,10 @@ Added search now also.
 Use the setting for the app to put in your username and password, and also the resolution you want to stream (you can select 1080, 720, 504 etc)
 
 Oh and if the UFC see this and feel like giving me some Kudos, how about some free close to the ring tickets for me and the guys at my gym here in Melbourne next time the UFC is in Melbourne :) (thought I'd give it a shot)
+
+Updated now to properly handle split audio/video streams (HLS). 
+Now uses "script.module.inputstreamhelper" which needs to be installed from kodi repos.
+Use this script to select the bandwidth you wish to use for adaptive streaming (it will change the stream automagically depending on your BW)
+
+
+
