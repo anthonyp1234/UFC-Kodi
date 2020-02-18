@@ -4,7 +4,4 @@
       <setting id="username" type="text" label="9001"/>
       <setting id="password" type="text" label="9002" option="hidden"/>
    </category>
-   <category label="8000">
-      <setting id="bandwidth" type="select" label="8001" values="1080|720|504|360|288" />
-   </category>
 </settings>

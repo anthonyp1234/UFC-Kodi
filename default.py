@@ -3,8 +3,6 @@ import os, requests, re, json
 from urllib import urlencode, quote_plus 
 from urlparse import parse_qsl
 import pickle
-
-#import inputstreamhelper  ###add this to deal with HLS stream
 import inputstreamhelper
 
 addon           = xbmcaddon.Addon(id='plugin.video.ufc')
@@ -13,63 +11,6 @@ addon_handle    = int(sys.argv[1])
 addon_icon      = addon.getAddonInfo('icon')
 addon_BASE_PATH = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
 TOKEN_FILE = os.path.join("/tmp/","auth_token.txt")
-
-BW = 1080
-BW = addon.getSetting('bandwidth')
-resolutions = [(1080,"1920x1080"),(720,"1280x720"),(504, "896x504"),(360 , "640x360"),(288, "512x288")]
-
-"""
-PROTOCOL = 'hls'
-#DRM = 'com.widevine.alpha'
-STREAM_URL = 'https://demo.unified-streaming.com/video/tears-of-steel/tears-of-steel-dash-widevine.ism/.mpd'
-#LICENSE_URL = 'https://cwip-shaka-proxy.appspot.com/no_auth'
-"""
-def play_hls_video(v_id, v_title):
-
-    status, stream = publish_point({'id': v_id })
-
-    if status == 400:
-        if post_auth(get_creds()):
-            status, stream = publish_point({ 'id': v_id })
-        else:
-            dialog = xbmcgui.Dialog()
-            dialog.ok('Authorization Error', 'Authorization to UFC Fight Pass failed.')
-
-
-
-    v_token = get_token()
-
-    encode_string = {"User-Agent": headers["user-agent"], 
-                    "Accept":"*/*", 
-                    "Accept-Encoding":"gzip, deflate, br", 
-                    "Accept-Language":"en-US,en;q=0.9", 
-                    "Connection":"keep-alive", 
-                    "Origin":"https://ufcfightpass.com",
-                    "Sec-Fetch-Mode":"cors",
-                    "Sec-Fetch-Site":"cross-site"
-                    }
-    
-
-    my_encoding = urlencode(encode_string)
-
- 
-    is_helper = inputstreamhelper.Helper('hls')
-    if is_helper.check_inputstream():
-
-        playitem = xbmcgui.ListItem(path=stream,label=v_title)
-        playitem.setProperty('isFolder', 'false')
-        playitem.setPath(path=stream)
-        playitem.setProperty('inputstreamaddon', is_helper.inputstream_addon)
-        playitem.setProperty('inputstream.adaptive.manifest_type', 'hls')
-        playitem.setProperty('inputstream.adaptive.stream_headers',my_encoding)        
-        playitem.setContentLookup(False)
-
-        xbmc.Player().play(stream,  playitem)
-
-
-
-
-
 
 urls = {
         "home" : "https://dce-frontoffice.imggaming.com/api/v2/content/home?bpp=10&bp=1&rpp=25&displayGeoblockedLive=false&displaySectionLinkBuckets=show",
@@ -131,7 +72,6 @@ def get_web_data(url, put_data=None):
     if not put_data:
         response = session.get(url, headers=headers_this_session)
     else:
-        #xbmc.log("Url: {0}   data: {1}".format(url,put_data),level=xbmc.LOGERROR)
         response = session.post(url,headers=headers_this_session, data=put_data)    
 
     
@@ -164,11 +104,9 @@ def router(paramstring):
             menu_data=get_categories(params['u'])
             build_menu(menu_data)
         elif action == 'play':
-            ## play_video(params['i'],params['t']) ###Removed and changed to new version to play hls video with m3u8 file instead
             play_hls_video(params['i'],params['t'])
         elif action == 'search':
             search_term = get_search_term()
-            #xbmc.log(search_term, level=xbmc.LOGERROR)
             menu_data = search(search_term)
             build_menu(menu_data)        
         else:
@@ -328,15 +266,9 @@ def clean_iter_data(data):
                 
 def build_menu(itemData):     
     """ Takes in array of dict, using this array builds a menu to display in Kodi"""
-    #xbmcplugin.setContent(int(sys.argv[1]), 'videos')
     for my_item in itemData:
-        #xbmc.log("\r\n" + str(my_item["type"]),level=xbmc.LOGERROR)
-        ##Testing putposes:
-        #if my_item["type"] == 'LIVE':
-            #xbmc.log("\r\n" + str(my_item),level=xbmc.LOGERROR)
     
         if any(my_item["type"] in s for s in ('VOD' ,'LIVE')):
-            #xbmc.log("\r\n{0} Item type is {1}".format(str(my_item["title"]), str(my_item["type"])),level=xbmc.LOGERROR)
             kodi_item = xbmcgui.ListItem(label=my_item["title"],label2=my_item.get("description"))
             kodi_item.setArt({  'thumb': my_item.get("thumbnailUrl"), 
                                 'icon' :  my_item.get("thumbnailUrl"), 
@@ -406,11 +338,6 @@ def build_initial_menu():
 
 
 
-
-
-
-
-
 def gen_dict_extract(key, var):
     """Find all items with value "key" in dict var, and return an iterable with all the key items, need to iter using
         for x in generator, x[0]"""
@@ -426,33 +353,44 @@ def gen_dict_extract(key, var):
                     for result in gen_dict_extract(key, d):     
                         yield result
 
-def play_video(v_id, v_title):
-    # Fetch the stream url and play the video
-    status, stream = publish_point({'id': v_id })
-    
+def play_hls_video(v_id, v_title):
+
+    status, stream, subtitles = publish_point({'id': v_id })
+
     if status == 400:
         if post_auth(get_creds()):
             status, stream = publish_point({ 'id': v_id })
         else:
             dialog = xbmcgui.Dialog()
             dialog.ok('Authorization Error', 'Authorization to UFC Fight Pass failed.')
-    
-    
-    
-    v_token = get_token()
-    
-    encode_string = {"User-Agent": headers["user-agent"], "authorization": v_token, "content-type": "video/MP2T" }
+
+    #v_token = get_token()
+
+    encode_string = {"User-Agent": headers["user-agent"],
+                    "Accept":"*/*",
+                    "Accept-Encoding":"gzip, deflate, br",
+                    "Accept-Language":"en-US,en;q=0.9",
+                    "Connection":"keep-alive",
+                    "Origin":"https://ufcfightpass.com",
+                    "Sec-Fetch-Mode":"cors",
+                    "Sec-Fetch-Site":"cross-site"
+                    }
+
     my_encoding = urlencode(encode_string)
 
-    try:
-        #pass
-        stream = stream + '|' +my_encoding
-        item = xbmcgui.ListItem(label=v_title)
-        xbmc.Player().play(stream, item)
-    except:
-        dialog = xbmcgui.Dialog()
-        dialog.ok('Playback Error', 'Unable to play video: ' + v_title)
-        #dialog.ok('Playback Error', 'Video Stream' + stream)
+    is_helper = inputstreamhelper.Helper('hls')
+    if is_helper.check_inputstream():
+
+        playitem = xbmcgui.ListItem(path=stream,label=v_title)
+        playitem.setProperty('isFolder', 'false')
+        playitem.setPath(path=stream)
+        playitem.setProperty('inputstreamaddon', is_helper.inputstream_addon)
+        playitem.setProperty('inputstream.adaptive.manifest_type', 'hls')
+        playitem.setProperty('inputstream.adaptive.stream_headers',my_encoding)
+        playitem.setContentLookup(False)
+        playitem.setSubtitles(subtitles)
+
+        xbmc.Player().play(stream,  playitem)
                         
                         
                         
@@ -476,20 +414,15 @@ def publish_point(video):
     status = resp.status_code
 
 
-
-    ##Need to do a seperate publish point for live
     if status != 200: ##hack to deal with live using a different url
         resp = s.get(url3+str(video['id']), headers=header_this_session) 
-        #xbmc.log("Response to live: " + str(resp.text),level=xbmc.LOGERROR)       
         result = resp.json()
         
  
     result = resp.json()
     if not result:
         return status, None
-    
 
-    #xbmc.log("First reponse is: {0}".format(str(result)),level=xbmc.LOGERROR)    
     resp2 = s.get(result['playerUrlCallback'], headers = header_this_session)
     status2 = resp2.status_code
     result2= resp2.json()
@@ -500,58 +433,22 @@ def publish_point(video):
     except:
         o_path = result2['hlsUrl']
         start_url = o_path
-       
-    ##Now we have the url whiuch is the .m3u8 url this is the url with all the codecs and r3esolutions etc....
-    ##going to return this to triy the different method. (input helper) which is in the play_hls_video method 
-    return status2, start_url  ##Remove this if it doesn't work at later stage
-
-    resp3 = s.get(o_path, headers = header_this_session)
-    result3 = resp3.text
-    status3 = resp3.status_code
-    o_path = return_FQDN_for_res(result3,start_url)
-
-
-
-
-    return status3, o_path    
+    
+    subtitles = []    
+    if "subtitles" in result2.keys():
+        for item in result2["subtitles"]:
+            subtitles.append(item["url"])
    
 
 
 
-def return_FQDN_for_res(result, start_url):
-    
-    ###The expression bellow needs to be better. In some instances it gets an extra value at the end###
-    my_expression = "(.*?)\w+\.\w+\?"
-    matches = re.match(my_expression,start_url)
-    url_start = matches.group(1)
-    url_end = ""
 
-    splits = iter(result.split('\n'))    
 
-    for line in splits:
-        for resolution in resolutions:
-            if BW >= resolution[0]:
-                if resolution[1] in line:
-                    url_end =  next(splits)
-                    return  merge_start_end_url(url_start, url_end)
-
-def merge_start_end_url(url_start, url_end):
-    if "../../" in url_end:
-        url_end = url_end.replace("../..","")
-        my_pattern = "^(https://.*?)/\d+"
-        url_start = re.match(my_pattern, url_start)
-        return url_start.group(1) + url_end
-        
-    else:
-        return url_start + url_end
+   
+    return status2, start_url, subtitles  ##Remove this if it doesn't work at later stage
 
 
 
 if __name__ == '__main__':     
     router(sys.argv[2][1:])
-
-
-
-
-
 
