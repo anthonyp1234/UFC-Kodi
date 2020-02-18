@@ -39,13 +39,11 @@ def play_hls_video(v_id, v_title):
 
     v_token = get_token()
 
-    #encode_string = {"User-Agent": headers["user-agent"], "authorization": v_token, "content-type": "video/MP2T" }
     encode_string = {"User-Agent": headers["user-agent"], 
                     "Accept":"*/*", 
                     "Accept-Encoding":"gzip, deflate, br", 
                     "Accept-Language":"en-US,en;q=0.9", 
                     "Connection":"keep-alive", 
-                    "Host":"dve-streams.akamaized.net",
                     "Origin":"https://ufcfightpass.com",
                     "Sec-Fetch-Mode":"cors",
                     "Sec-Fetch-Site":"cross-site"
@@ -54,28 +52,19 @@ def play_hls_video(v_id, v_title):
 
     my_encoding = urlencode(encode_string)
 
-    stream_url = stream + '|' + my_encoding
-    
+ 
     is_helper = inputstreamhelper.Helper('hls')
     if is_helper.check_inputstream():
-        xbmc.log("\r\nGot to here" ,level=xbmc.LOGERROR)
-        playitem = xbmcgui.ListItem(path=stream_url,label=v_title)
+
+        playitem = xbmcgui.ListItem(path=stream,label=v_title)
         playitem.setProperty('isFolder', 'false')
-        playitem.setPath(path=stream_url)
-        playitem.setInfo("video",{'mediatype':'video'})
-        playitem.setIsFolder(False)
-        
-        playitem.setProperty('IsPlayable', 'true')        
-
-        xbmc.log(playitem.getProperty('isFolder'),level=xbmc.LOGERROR)
-
+        playitem.setPath(path=stream)
         playitem.setProperty('inputstreamaddon', is_helper.inputstream_addon)
         playitem.setProperty('inputstream.adaptive.manifest_type', 'hls')
         playitem.setProperty('inputstream.adaptive.stream_headers',my_encoding)        
         playitem.setContentLookup(False)
 
-        xbmc.Player().play(stream_url,  playitem)
-        #xbmcplugin.setResolvedUrl(int(sys.argv[1]),True, listitem=playitem)
+        xbmc.Player().play(stream,  playitem)
 
 
 
