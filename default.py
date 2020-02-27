@@ -10,7 +10,10 @@ addon_url       = sys.argv[0]
 addon_handle    = int(sys.argv[1])
 addon_icon      = addon.getAddonInfo('icon')
 addon_BASE_PATH = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
-TOKEN_FILE = os.path.join("/tmp/","auth_token.txt")
+#TOKEN_FILE = os.path.join("/tmp/","auth_token.txt")
+
+TOKEN_FILE = xbmc.translatePath(os.path.join('special://temp','ufc_token_data.txt'))
+
 
 urls = {
         "home" : "https://dce-frontoffice.imggaming.com/api/v2/content/home?bpp=10&bp=1&rpp=25&displayGeoblockedLive=false&displaySectionLinkBuckets=show",
