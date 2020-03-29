@@ -292,7 +292,7 @@ def build_menu(itemData):
 
             kodi_item.setInfo(type='video', infoLabels=video_info)
                                 
-            url = '{0}?action=play&i={1}&t={2}'.format(addon_url, my_item["id"], quote_plus(my_item["title"]))
+            url = '{0}?action=play&i={1}&t={2}'.format(addon_url, my_item["id"], quote_plus(my_item["title"].encode('utf8'))) ##added encode utf
             xbmcplugin.addDirectoryItem(addon_handle, url, kodi_item, isFolder=False, totalItems=len(itemData)) ###last false is if it is a directory
     
         elif my_item["type"] == 'PLAYLIST':
