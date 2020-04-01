@@ -239,8 +239,12 @@ def search(query_string):
                     if "en_GB" in item["localisations"]:
                         list_item["title"] = str(item["localisations"]["en_GB"]["title"])                        
 
+                elif 'title' in item:
+                    list_item["title"] = str(item["title"]) 
+                elif 'name' in item:
+                    list_item["title"] = str(item["name"])
                 else:
-                    list_item["title"] = str(item["title"])  
+                    list_item["title"] = "NoneFound" 
 
 
                 if "thumbnailUrl" in item.keys():
