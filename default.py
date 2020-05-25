@@ -10,10 +10,10 @@ addon_url       = sys.argv[0]
 addon_handle    = int(sys.argv[1])
 addon_icon      = addon.getAddonInfo('icon')
 addon_BASE_PATH = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
-#TOKEN_FILE = os.path.join("/tmp/","auth_token.txt")
 
 TOKEN_FILE = xbmc.translatePath(os.path.join('special://temp','ufc_token_data.txt'))
 
+DASH = False  ### If true use dash, otherwise use hls
 
 urls = {
         "home" : "https://dce-frontoffice.imggaming.com/api/v2/content/home?bpp=10&bp=1&rpp=25&displayGeoblockedLive=false&displaySectionLinkBuckets=show",
@@ -24,8 +24,8 @@ urls = {
         }
 
 auth_url = "https://dce-frontoffice.imggaming.com/api/v2/login"
+#playlist_url = "https://dce-frontoffice.imggaming.com/api/v2/vod/playlist/{0}?rpp=25&p=1"  ##Changed to check if this is the issue 21-05-2020
 playlist_url = "https://dce-frontoffice.imggaming.com/api/v2/vod/playlist/{0}?rpp=25&p=1"
-
 
 headers={
     "content-type": "application/json",
@@ -300,8 +300,6 @@ def build_menu(itemData):
             xbmcplugin.addDirectoryItem(addon_handle, url, kodi_item, isFolder=False, totalItems=len(itemData)) ###last false is if it is a directory
     
         elif my_item["type"] == 'PLAYLIST':
-            #xbmc.log("Item type is playlist ",level=xbmc.LOGERROR)
-            #xbmc.log(str(my_item["type"]),level=xbmc.LOGERROR)
             kodi_item = xbmcgui.ListItem(label=my_item["title"],label2=my_item.get("description"))
 
             kodi_item.setArt({  'thumb': my_item.get("smallCoverUrl"),
@@ -366,38 +364,52 @@ def play_hls_video(v_id, v_title):
 
     if status == 400:
         if post_auth(get_creds()):
-            status, stream = publish_point({ 'id': v_id })
+            status, stream, subtitles = publish_point({ 'id': v_id })
         else:
             dialog = xbmcgui.Dialog()
             dialog.ok('Authorization Error', 'Authorization to UFC Fight Pass failed.')
 
     #v_token = get_token()
 
-    encode_string = {"User-Agent": headers["user-agent"],
-                    "Accept":"*/*",
-                    "Accept-Encoding":"gzip, deflate, br",
+    encode_string = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36", ##headers["user-agent"],
+                    #"Accept":"*/*",
+                    "Accept-Encoding":"identity", ##"Accept-Encoding":"gzip, deflate, br",
                     "Accept-Language":"en-US,en;q=0.9",
                     "Connection":"keep-alive",
                     "Origin":"https://ufcfightpass.com",
                     "Sec-Fetch-Mode":"cors",
-                    "Sec-Fetch-Site":"cross-site"
+                    "Sec-Fetch-Site":"cross-site",
+                    "DNT" : "1",
+                    "Sec-Fetch-Dest": "empty",
+                    "Host": "dve-streams.akamaized.net"
                     }
+
 
     my_encoding = urlencode(encode_string)
 
-    is_helper = inputstreamhelper.Helper('hls')
-    if is_helper.check_inputstream():
 
-        playitem = xbmcgui.ListItem(path=stream,label=v_title)
-        playitem.setProperty('isFolder', 'false')
-        playitem.setPath(path=stream)
-        playitem.setProperty('inputstreamaddon', is_helper.inputstream_addon)
-        playitem.setProperty('inputstream.adaptive.manifest_type', 'hls')
-        playitem.setProperty('inputstream.adaptive.stream_headers',my_encoding)
-        playitem.setContentLookup(False)
-        playitem.setSubtitles(subtitles)
+    playitem = xbmcgui.ListItem(path=stream,label=v_title)
+    playitem.setProperty('inputstream', 'inputstream.adaptive')
+    
+    if DASH:
+        playitem.setMimeType('application/xml+dash')   ###Added this 19-05-2020. Is needed to make video work
+        playitem.setProperty('inputstream.adaptive.manifest_type', 'mpd')  ###was originally hls, trying mpd  
+    else:
+        playitem.setMimeType('application/vnd.apple.mpegurl')   ###Added this 19-05-2020. Is needed to make video work
+        playitem.setProperty('inputstream.adaptive.manifest_type', 'hls')  ###was originally hls, trying mpd          
+    
+    playitem.setContentLookup(False)
+    playitem.setProperty('isFolder', 'false')
+    playitem.setProperty('IsPlayable', 'true')
+       ###This is needed for kodi 19>
+      
+    playitem.setProperty('inputstream.adaptive.stream_headers', my_encoding )  
 
-        xbmc.Player().play(stream,  playitem)
+    
+    #xbmc.log("Stream addr is: {0}".format(str(stream)),level=xbmc.LOGERROR)
+    #xbmc.Player().play(stream  ,  playitem)    #### added + "|" + my_encoding
+    
+    xbmcplugin.setResolvedUrl(addon_handle, True, playitem)
                         
                         
                         
@@ -405,9 +417,9 @@ def publish_point(video):
     """??Takes in Video Dict, queries website publishpoint with video info (video id), 
     get a response that includes a path,returns (status code, path to video)"""
     
-    url = 'https://dce-frontoffice.imggaming.com/api/v2/stream/vod/'
-    url2 = 'https://dce-frontoffice.imggaming.com/api/v2/event/' ##This url is for streaming (grab the data)a
-    url3 = 'https://dce-frontoffice.imggaming.com/api/v2/stream?eventId=' ##another url for stremaing (actual streaming info)
+    url = 'https://dce-frontoffice.imggaming.com/api/v3/stream/vod/'
+    url2 = 'https://dce-frontoffice.imggaming.com/api/v3/event/' ##This url is for streaming (grab the data)a
+    url3 = 'https://dce-frontoffice.imggaming.com/api/v3/stream?eventId=' ##another url for stremaing (actual streaming info)
     start_url = "" ## Start url string for final response. 
     
     s = requests.Session()
@@ -434,17 +446,35 @@ def publish_point(video):
     status2 = resp2.status_code
     result2= resp2.json()
     
-    try:
-        o_path = result2["hls"]["url"]   ###this is the m3u8 url
-        start_url = o_path
-    except:
-        o_path = result2['hlsUrl']
-        start_url = o_path
+    #xbmc.log("JSON is: {0}".format(str(result2)),level=xbmc.LOGERROR)
     
-    subtitles = []    
-    if "subtitles" in result2.keys():
-        for item in result2["subtitles"]:
-            subtitles.append(item["url"])
+    if DASH:
+        try:
+            o_path = result2["dash"][0]["url"]   ###trying dash instead to check if this will help. originally result2["hls"][0]["url"]
+            start_url = o_path
+        except:
+            o_path = result2['dashUrl']
+            start_url = o_path
+        
+        subtitles = []    
+        if "subtitles" in result2['dash'][0].keys():
+            for item in result2['dash'][0]['subtitles']:
+                subtitles.append(item["url"])
+                #xbmc.log("Subs: {0}".format(str(subtitles)),level=xbmc.LOGERROR)
+
+    else:
+        try:
+            o_path = result2["hls"][0]["url"]   ###trying dash instead to check if this will help. originally result2["hls"][0]["url"]
+            start_url = o_path
+        except:
+            o_path = result2['hlsUrl']
+            start_url = o_path
+        
+        subtitles = []    
+        if "subtitles" in result2['hls'][0].keys():
+            for item in result2['hls'][0]['subtitles']:
+                subtitles.append(item["url"])
+                #xbmc.log("Subs: {0}".format(str(subtitles)),level=xbmc.LOGERROR)        
    
 
 
