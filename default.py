@@ -232,7 +232,7 @@ def search(query_string):
                 list_item["type"] = 'VOD'
                 list_item["id"]  = item["id"]                
                 list_item["duration"] = item["duration"]
-                if "localisations" in item.keys():
+                if "localisations" in list(item.keys()):
                     if "en_US" in item["localisations"]:
                         list_item["title"] = str(item["localisations"]["en_US"]["title"])
 
@@ -247,7 +247,7 @@ def search(query_string):
                     list_item["title"] = "NoneFound" 
 
 
-                if "thumbnailUrl" in item.keys():
+                if "thumbnailUrl" in list(item.keys()):
                     list_item["thumbnailUrl"] = str(item["thumbnailUrl"])
 
                 else:
@@ -370,10 +370,15 @@ def play_hls_video(v_id, v_title):
             dialog.ok('Authorization Error', 'Authorization to UFC Fight Pass failed.')
 
     #v_token = get_token()
-
+    
+    
+    #xbmc.log("Stream addr is: {0}".format(str(stream)),level=xbmc.LOGERROR)
+    
+    
     encode_string = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36", ##headers["user-agent"],
-                    #"Accept":"*/*",
-                    "Accept-Encoding":"identity", ##"Accept-Encoding":"gzip, deflate, br",
+                    "Accept":"*/*",
+                    #"Accept-Encoding":"identity", ##"Accept-Encoding":"gzip, deflate, br",
+                    "Accept-Encoding" : "gzip",
                     "Accept-Language":"en-US,en;q=0.9",
                     "Connection":"keep-alive",
                     "Origin":"https://ufcfightpass.com",
@@ -381,7 +386,7 @@ def play_hls_video(v_id, v_title):
                     "Sec-Fetch-Site":"cross-site",
                     "DNT" : "1",
                     "Sec-Fetch-Dest": "empty",
-                    "Host": "dve-streams.akamaized.net"
+                    #"Host": "dve-streams.akamaized.net"
                     }
 
 
@@ -392,10 +397,10 @@ def play_hls_video(v_id, v_title):
     playitem.setProperty('inputstream', 'inputstream.adaptive')
     
     if DASH:
-        playitem.setMimeType('application/xml+dash')   ###Added this 19-05-2020. Is needed to make video work
+        playitem.setMimeType('application/xml+dash')   ###
         playitem.setProperty('inputstream.adaptive.manifest_type', 'mpd')  ###was originally hls, trying mpd  
     else:
-        playitem.setMimeType('application/vnd.apple.mpegurl')   ###Added this 19-05-2020. Is needed to make video work
+        playitem.setMimeType('application/vnd.apple.mpegurl')   ###
         playitem.setProperty('inputstream.adaptive.manifest_type', 'hls')  ###was originally hls, trying mpd          
     
     playitem.setContentLookup(False)
@@ -419,7 +424,7 @@ def publish_point(video):
     
     url = 'https://dce-frontoffice.imggaming.com/api/v3/stream/vod/'
     url2 = 'https://dce-frontoffice.imggaming.com/api/v3/event/' ##This url is for streaming (grab the data)a
-    url3 = 'https://dce-frontoffice.imggaming.com/api/v3/stream?eventId=' ##another url for stremaing (actual streaming info)
+    url3 = 'https://dce-frontoffice.imggaming.com/api/v2/stream?eventId=' ##another url for stremaing (actual streaming info)
     start_url = "" ## Start url string for final response. 
     
     s = requests.Session()
@@ -432,9 +437,11 @@ def publish_point(video):
     # normally status 400 if have an expired session
     status = resp.status_code
 
+    #xbmc.log("Live result: {0}".format(str(resp.json())),level=xbmc.LOGERROR)
 
     if status != 200: ##hack to deal with live using a different url
         resp = s.get(url3+str(video['id']), headers=header_this_session) 
+        #xbmc.log("Live result: {0}".format(str(resp.json())),level=xbmc.LOGERROR)
         result = resp.json()
         
  
@@ -468,19 +475,24 @@ def publish_point(video):
             start_url = o_path
         except:
             o_path = result2['hlsUrl']
+            
             start_url = o_path
         
-        subtitles = []    
-        if "subtitles" in result2['hls'][0].keys():
-            for item in result2['hls'][0]['subtitles']:
-                subtitles.append(item["url"])
-                #xbmc.log("Subs: {0}".format(str(subtitles)),level=xbmc.LOGERROR)        
+        subtitles = []
+        
+        try:
+            if "subtitles" in result2['hls'][0].keys():
+                for item in result2['hls'][0]['subtitles']:
+                    subtitles.append(item["url"])
+                    #xbmc.log("Subs: {0}".format(str(subtitles)),level=xbmc.LOGERROR)
+        except:
+            pass
    
 
 
 
 
-
+    #xbmc.log("JSON is: {0}".format(str(start_url)),level=xbmc.LOGERROR)
    
     return status2, start_url, subtitles  ##Remove this if it doesn't work at later stage
 
